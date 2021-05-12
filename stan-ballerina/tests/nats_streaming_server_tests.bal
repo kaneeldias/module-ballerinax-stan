@@ -78,6 +78,9 @@ public function testConsumerService() {
 
     error? detatchResult = sub.detach(consumerService);
     test:assertTrue(detatchResult is (), msg = "Listener detach failed.");
+
+    error? gracefulStopResult = sub.gracefulStop();
+    test:assertTrue(gracefulStopResult is (), msg = "Listener graceful stop failed.");
 }
 
 @test:Config {
