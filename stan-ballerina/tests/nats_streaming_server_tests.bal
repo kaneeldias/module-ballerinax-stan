@@ -22,7 +22,9 @@ import ballerina/test;
 Client? clientObj = ();
 const SUBJECT_NAME = "nats-streaming";
 const SERVICE_SUBJECT_NAME = "nats-streaming-service";
+const CALLER_SERVICE_SUBJECT_NAME = "nats-streaming-service-caller";
 string receivedConsumerMessage = "";
+boolean ackStatus = false;
 
 @test:BeforeSuite
 function setup() {
@@ -72,6 +74,22 @@ public function testConsumerService() {
     test:assertEquals(receivedConsumerMessage, message, msg = "Message received does not match.");
 }
 
+@test:Config {
+    dependsOn: [testProducer],
+    groups: ["nats-streaming"]
+}
+public function testManualAck() {
+    string message = "Manual ack test";
+    Listener sub = checkpanic new(DEFAULT_URL);
+    Client newClient = checkpanic new(DEFAULT_URL);
+    checkpanic sub.attach(consumerServiceWithCaller);
+    checkpanic sub.'start();
+    string id = checkpanic newClient->publishMessage({ content: message.toBytes(),
+                                                       subject: CALLER_SERVICE_SUBJECT_NAME});
+    runtime:sleep(5);
+    test:assertTrue(ackStatus, msg = "Manual ack failed.");
+}
+
 Service consumerService =
 @ServiceConfig {
     subject: SERVICE_SUBJECT_NAME
@@ -85,3 +103,18 @@ service object {
         }
     }
 };
+
+Service consumerServiceWithCaller =
+@ServiceConfig {
+    subject: CALLER_SERVICE_SUBJECT_NAME,
+    autoAck: false
+}
+service object {
+    remote function onMessage(Message msg, Caller caller) {
+        error? ackResult = caller->ack();
+        if (ackResult is ()) {
+            ackStatus = true;
+        }
+    }
+};
+
