@@ -54,6 +54,9 @@ public function testProducer() {
         string message = "Hello World";
         Error|string result = con->publishMessage({ content: message.toBytes(), subject: SUBJECT_NAME });
         test:assertTrue(result is string, msg = "Producing a message to the broker caused an error.");
+
+        error? closeResult = con.close();
+        test:assertTrue(closeResult is (), msg = "Client close failed.");
     } else {
         test:assertFail("NATS Connection creation failed.");
     }
