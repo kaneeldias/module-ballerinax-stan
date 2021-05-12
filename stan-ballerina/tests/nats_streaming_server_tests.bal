@@ -81,6 +81,11 @@ public function testConsumerService() {
 
     error? gracefulStopResult = sub.gracefulStop();
     test:assertTrue(gracefulStopResult is (), msg = "Listener graceful stop failed.");
+
+    sub = checkpanic new(DEFAULT_URL);
+    checkpanic sub.'start();
+    error? immediateStopResult = sub.immediateStop();
+    test:assertTrue(immediateStopResult is (), msg = "Listener immediate stop failed.");
 }
 
 @test:Config {
