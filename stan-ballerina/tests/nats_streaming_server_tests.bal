@@ -75,6 +75,9 @@ public function testConsumerService() {
     string id = checkpanic newClient->publishMessage({ content: message.toBytes(), subject: SERVICE_SUBJECT_NAME});
     runtime:sleep(5);
     test:assertEquals(receivedConsumerMessage, message, msg = "Message received does not match.");
+
+    error? detatchResult = sub.detach(consumerService);
+    test:assertTrue(detatchResult is (), msg = "Listener detach failed.");
 }
 
 @test:Config {
