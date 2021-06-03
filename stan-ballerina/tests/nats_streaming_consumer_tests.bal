@@ -1,3 +1,19 @@
+// Copyright (c) 2021 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+//
+// WSO2 Inc. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import ballerina/lang.'string;
 import ballerina/lang.runtime as runtime;
 import ballerina/log;
@@ -10,17 +26,12 @@ const INVALID_SUBJECT_NAME = "nats-streaming-invalid";
 const SERVICE_NO_CONFIG_NAME = "nats-streaming-service-no-config";
 const QUEUE_SUBJECT_NAME = "nats-streaming-queue";
 const DURABLE_SUBJECT_NAME = "nats-streaming-queue";
-const START_POSITION_SUBJECT_NAME = "nats-streaming-start-position";
 
 string receivedConsumerMessage = "";
 string receivedAckMessage = "";
 string noConfigServiceReceivedMessage = "";
 string receivedQueueMessage = "";
 string receivedDurableMessage = "";
-string receivedStartPositionFirstMessages = "";
-string receviedStartPositionLastReceivedMessages = "";
-string receivedStartPositionTimeDeltaMessages = "";
-string receivedStartPositionSequenceNumberMessages = "";
 
 boolean ackNegativeFlag = false;
 boolean invalidServiceFlag = true;
@@ -138,51 +149,6 @@ public function testConsumerServiceWithDurable() {
     string id = checkpanic newClient->publishMessage({ content: message.toBytes(), subject: DURABLE_SUBJECT_NAME });
     runtime:sleep(5);
     test:assertEquals(receivedDurableMessage, message, msg = "Message received does not match.");
-    checkpanic newClient.close();
-    checkpanic sub.close();
-}
-
-@test:Config {
-    groups: ["nats-streaming"]
-}
-public function testConsumerServicesWithStartPositions() {
-    Listener sub = checkpanic new(DEFAULT_URL);
-    Client newClient = checkpanic new(DEFAULT_URL);
-    checkpanic sub.attach(startPositionFirstService);
-    checkpanic sub.attach(startPositionLastReceivedService);
-    checkpanic sub.attach(startPositionTimeDeltaService);
-    checkpanic sub.attach(startPositionSequenceNumberService);
-
-    string firstMessage = "1";
-    string middleMessage = "2";
-    string lastMessage = "3";
-    string afterMessage = "4";
-
-    future<string|error> id1  = start newClient->publishMessage({ content: firstMessage.toBytes(),
-                                                                  subject: START_POSITION_SUBJECT_NAME });
-    string|error id = wait id1;
-    runtime:sleep(10);
-    future<string|error> id2 = start newClient->publishMessage({ content: middleMessage.toBytes(),
-                                                                 subject: START_POSITION_SUBJECT_NAME });
-    id = wait id2;
-    future<string|error> id3 = start newClient->publishMessage({ content: lastMessage.toBytes(),
-                                                                 subject: START_POSITION_SUBJECT_NAME });
-    id = wait id3;
-    checkpanic sub.'start();
-    runtime:sleep(10);
-    id = checkpanic newClient->publishMessage({ content: afterMessage.toBytes(),
-                                                subject: START_POSITION_SUBJECT_NAME });
-    runtime:sleep(5);
-    // TODO: Check message order
-    //test:assertEquals(receivedStartPositionFirstMessages, firstMessage + lastMessage + middleMessage + afterMessage,
-                      //msg = "(FIRST) Message received does not match.");
-    test:assertEquals(receviedStartPositionLastReceivedMessages, lastMessage + afterMessage,
-                      msg = "(LAST RECEIVED) Message received does not match.");
-    test:assertEquals(receivedStartPositionTimeDeltaMessages, middleMessage + lastMessage + afterMessage,
-                      msg = "(TIME DELTA) Message received does not match.");
-    //test:assertEquals(receivedStartPositionSequenceNumberMessages, middleMessage + lastMessage + afterMessage,
-                      //msg = "(SEQUENCE NUMBER) Message received does not match.");
-
     checkpanic newClient.close();
     checkpanic sub.close();
 }
@@ -417,65 +383,5 @@ Service invalidService =
 service object {
     remote function onMessage(Message msg, Caller caller, string invalidArgument) {
         invalidServiceFlag = false;
-    }
-};
-
-Service startPositionLastReceivedService =
-@ServiceConfig {
-    subject: START_POSITION_SUBJECT_NAME,
-    startPosition: LAST_RECEIVED
-}
-service object {
-    remote function onMessage(Message msg, Caller caller) {
-        string|error messageContent = 'string:fromBytes(msg.content);
-        if (messageContent is string) {
-            receviedStartPositionLastReceivedMessages += messageContent;
-            log:printInfo("Message Received (LAST_RECEIVED): " + messageContent);
-        }
-    }
-};
-
-Service startPositionFirstService =
-@ServiceConfig {
-    subject: START_POSITION_SUBJECT_NAME,
-    startPosition: FIRST
-}
-service object {
-    remote function onMessage(Message msg, Caller caller) {
-        string|error messageContent = 'string:fromBytes(msg.content);
-        if (messageContent is string) {
-            receivedStartPositionFirstMessages += messageContent;
-            log:printInfo("Message Received (FIRST): " + messageContent);
-        }
-    }
-};
-
-Service startPositionTimeDeltaService =
-@ServiceConfig {
-    subject: START_POSITION_SUBJECT_NAME,
-    startPosition: [TIME_DELTA_START, 5]
-}
-service object {
-    remote function onMessage(Message msg, Caller caller) {
-        string|error messageContent = 'string:fromBytes(msg.content);
-        if (messageContent is string) {
-            receivedStartPositionTimeDeltaMessages += messageContent;
-            log:printInfo("Message Received (TIME DELTA): " + messageContent);
-        }
-    }
-};
-
-Service startPositionSequenceNumberService =
-@ServiceConfig {
-    subject: START_POSITION_SUBJECT_NAME,
-    startPosition: [SEQUENCE_NUMBER, 2]
-}
-service object {
-    remote function onMessage(Message msg, Caller caller) {
-        string|error messageContent = 'string:fromBytes(msg.content);
-        if (messageContent is string) {
-            receivedStartPositionSequenceNumberMessages += messageContent;
-            log:printInfo("Message Received (SEQUENCE NUMBER): " + messageContent);
-        }
     }
 };
